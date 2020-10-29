@@ -14,6 +14,12 @@ urlpatterns = [
     path('addOrUpdateRole', views.AddOrupdateRoleApi.as_view(), name="add_or_update_role"),
     path('deleteRole', views.DeleteRoleApi.as_view(), name="delete_role"),
 
+    # 用户角色
+    path('getUserRole', views.GetUserRoleApi.as_view(), name="get_user_role"),
+    path('addUserRole', views.AddUserRoleApi.as_view(), name="add_user_role"),
+    path('updateUserRole', views.UpdateUserRoleApi.as_view(), name="update_user_role"),
+    path('deleteUserRole', views.DeleteUserRoleApi.as_view(), name="delete_user_role"),
+
     path('list/permissions/', views.list_permissions, name='list_permissions'),
     path('add/permission/', views.add_permission, name='add_permission'),
     path('update/permission/', views.update_permission, name='update_permission'),

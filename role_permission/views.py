@@ -1,4 +1,6 @@
 import json
+
+from django.db.models import Q
 from django.shortcuts import render
 
 from django.utils.decorators import method_decorator
@@ -37,10 +39,10 @@ class AddMenuApi(APIView):
     def post(self, request, *args, **kwargs):
         data = request.data
         try:
-            data["role"] = Role.objects.get(id=data["role"])
+            Menu.objects.create(**data)
         except Exception as e:
-            return JsonResponse({"code": 1, "message": "没有这个角色"})
-        Menu.objects.create(**data)
+            print(e)
+            return JsonResponse({"code": 1, "message": "添加失败"})
         return JsonResponse({"code": 0, "message": "添加成功"})
 
 
@@ -54,9 +56,7 @@ class UpdateMenuApi(APIView):
             return JsonResponse({"code": 1, "message": "缺少菜单id"})
 
         menu = Menu.objects.get(id=menu_id)
-
-        role = Role.objects.get(id=data["role"])
-        menuser = MenuSerializers(instance=menu, data=data, context={"role": role})
+        menuser = MenuSerializers(instance=menu, data=data)
         if menuser.is_valid():
             menuser.save()
             return JsonResponse({"code": 0, "message": "修改成功"})
@@ -71,7 +71,6 @@ class DeleteMenuApi(APIView):
         menu_id = request.data.get("id")
         if not menu_id:
             return JsonResponse({"code": 1, "message": "缺少菜单id"})
-
         menu = get_object(Menu, menu_id)
         if not menu:
             return JsonResponse({"code": 1, "message": "未找到数据"})
@@ -96,31 +95,17 @@ class AddOrupdateRoleApi(APIView):
     def post(self, request, *args, **kwargs):
         data = request.data
         permission_id_list = data.pop("permission_id_list")
+        permissionobj_list = Permission.objects.filter(id__in=permission_id_list)
         if not permission_id_list:
             return JsonResponse({"code": 1, "message": "权限列表为空"})
         role_name = data.get("name")
         if not role_name:
             return JsonResponse({"code": 1, "message": "角色参数错误"})
-        permissionobj_list = []
-        permissionobj_list_None = []
-        for pil in permission_id_list:
-            permissionobj = get_object(Permission, pil)
-            if permissionobj:
-                permissionobj_list.append(permissionobj)
-            else:
-                permissionobj_list_None.append(pil)
         try:
             role = Role.objects.get(name=role_name)
         except Exception as e:
             role = Role.objects.create(**data)
-            role.permission.clear()
-            for obj_l in permissionobj_list:
-                role.permission.add(obj_l)
-            role.save()
-            return JsonResponse({"code": 0, "message": "添加成功"})
-        role.permission.clear()
-        for obj_l in permissionobj_list:
-            role.permission.add(obj_l)
+        role.permission.set(*[permissionobj_list])
         role.save()
         return JsonResponse({"code": 0, "message": "添加成功"})
 
@@ -225,4 +210,79 @@ def query_user_permissions(request):
     permission_list = list(set(permission_list))
     return JsonResponse({'message': permission_list, 'status': '1'})
 
+@method_decorator(login_exempt, name='dispatch')
+class GetUserRoleApi(APIView):
 
+    def get(self,request,*args,**kwargs):
+        username = request.GET.get("username","")
+        userrolelist = UserRole.objects.filter(user__username__contains=username).order_by("-c_time")
+        mypage = MyPageNumberPagination()
+        page_query = mypage.paginate_queryset(queryset=userrolelist,request=request,view=self)
+
+        userrolelistser = UserRoleSerializers(instance=page_query,many=True)
+        return mypage.get_paginated_response(userrolelistser.data)
+
+@method_decorator(login_exempt, name='dispatch')
+class AddUserRoleApi(APIView):
+
+    def post(self, request, *args, **kwargs):
+        user_id = request.data.get("user_id","")
+        role_id = request.data.get("role_id","")
+        if not user_id or not role_id:
+            return JsonResponse({"code": 1, "message": "参数不正确"})
+        try:
+            hasuserrole = UserRole.objects.get(user_id=user_id,role_id=role_id)
+        except Exception as e:
+            hasuserrole = ""
+        print(hasuserrole)
+        if hasuserrole:
+            return JsonResponse({"code": 1, "message": "用户已存在这个角色"})
+        user = get_object(User,user_id)
+
+        role = get_object(Role,role_id)
+        if not user or not role:
+            return JsonResponse({"code": 1, "message": "没有此用户或角色"})
+        user_role = UserRole()
+        user_role.user = user
+        user_role.role = role
+        user_role.save()
+        return JsonResponse({"code": 0, "message": "添加成功"})
+
+@method_decorator(login_exempt, name='dispatch')
+class UpdateUserRoleApi(APIView):
+
+    def post(self, request, *args, **kwargs):
+        user_role_id = request.data.get("user_role_id", "")
+        user_id = request.data.get("user_id","")
+        role_id = request.data.get("role_id","")
+        if not user_id or not role_id or not user_role_id:
+            return JsonResponse({"code": 1, "message": "参数不正确"})
+        try:
+            hasuserrole = UserRole.objects.get(user_id=user_id,role_id=role_id)
+        except Exception as e:
+            hasuserrole = ""
+        if hasuserrole:
+            return JsonResponse({"code": 1, "message": "用户已存在这个角色"})
+        role = get_object(Role,role_id)
+        if not role:
+            return JsonResponse({"code": 1, "message": "没有此用户或角色"})
+        user_role = UserRole.objects.get(id = user_role_id)
+        user_role.role = role
+        user_role.save()
+        return JsonResponse({"code": 0, "message": "添加成功"})
+
+@method_decorator(login_exempt, name='dispatch')
+class DeleteUserRoleApi(APIView):
+
+    def post(self, request, *args, **kwargs):
+        user_role_id = request.data.get("user_role_id", "")
+        if not user_role_id:
+            return JsonResponse({"code": 1, "message": "参数不正确"})
+        try:
+            user_role = UserRole.objects.get(id = user_role_id)
+        except Exception as e:
+            user_role = ""
+        if not user_role:
+            return JsonResponse({"code": 1, "message": "没有这条数据"})
+        user_role.delete()
+        return JsonResponse({"code": 0, "message": "添加成功"})

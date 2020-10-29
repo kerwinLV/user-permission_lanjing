@@ -7,6 +7,7 @@ class Role(models.Model):
     permission = models.ManyToManyField('Permission',related_name="permission", verbose_name='权限')
     create_time = models.DateTimeField(auto_now_add=True, null=True, blank=True, verbose_name="创建时间")
     is_delete = models.CharField(max_length=8, default=0, verbose_name='是否删除',help_text="0未删除,1已删除")
+    menu = models.ManyToManyField("Menu",related_name="menu_role",verbose_name="菜单")
 
     def __str__(self):
         return self.name
@@ -47,7 +48,6 @@ class Menu(models.Model):
     menu_parameter = models.CharField(max_length=2048,null=True,blank=True,verbose_name="详细参数")
     level = models.CharField(max_length=8,null=True,blank=True,verbose_name="菜单等级",help_text="1是一级,2是二级.以此类推")
     father_menu = models.CharField(max_length=8,null=True,blank=True,verbose_name="父级")
-    role = models.ForeignKey(Role,null=True,blank=True,related_name="menu_role",on_delete=models.SET_NULL)
     create_time = models.DateTimeField(auto_now_add=True,null=True,blank=True,verbose_name="创建时间")
 
     def __str__(self):
